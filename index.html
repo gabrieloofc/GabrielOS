@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>GabrielOS Pro</title>
+
+<style>
+:root {
+    --win-bg: rgba(243, 243, 243, 0.92);
+    --taskbar-bg: rgba(15, 15, 15, 0.9);
+    --accent: #0078d4;
+}
+
+body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #000; touch-action: none; }
+
+.desktop {
+    width: 100vw; height: 100vh;
+    background: linear-gradient(135deg, #1e5799, #207cca, #1a2a6c);
+    position: relative;
+}
+
+/* Cursor Touch Visual */
+#touch-cursor {
+    width: 25px; height: 25px;
+    background: rgba(255, 255, 255, 0.4);
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    position: fixed; pointer-events: none;
+    z-index: 11000; display: none;
+    transform: translate(-50%, -50%);
+    transition: transform 0.1s ease;
+}
+
+/* Ícones */
+.grid-icons { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+.icon {
+    width: 75px; text-align: center; color: white; cursor: pointer;
+    padding: 10px; border-radius: 5px; transition: 0.2s;
+}
+.icon:hover { background: rgba(255,255,255,0.15); }
+.icon div { font-size: 11px; margin-top: 5px; text-shadow: 1px 1px 2px black; }
+
+/* Janelas */
+.window {
+    width: 400px; min-height: 250px;
+    background: var(--win-bg); backdrop-filter: blur(12px);
+    position: absolute; border-radius: 8px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.4);
+    display: none; flex-direction: column; z-index: 10;
+}
+
+.titlebar {
+    height: 35px; display: flex; justify-content: space-between; align-items: center;
+    padding-left: 12px; cursor: move; border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.window-controls { display: flex; height: 100%; }
+.control-btn {
+    width: 45px; height: 100%; border: none; background: transparent;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.control-btn:hover { background: rgba(0,0,0,0.1); }
+.btn-close:hover { background: #e81123 !important; color: white; border-top-right-radius: 8px; }
+
+.content { padding: 12px; flex: 1; color: #333; display: flex; flex-direction: column; }
+
+/* Inputs e Teclado Físico */
+textarea, input {
+    width: 100%; border: 1px solid rgba(0,0,0,0.1); border-radius: 4px;
+    padding: 8px; font-family: inherit; font-size: 14px;
+    background: white; outline: none; box-sizing: border-box;
+}
+textarea:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,120,212,0.2); }
+
+/* Barra de Tarefas */
+.taskbar {
+    position: fixed; bottom: 0; width: 100%; height: 40px;
+    background: var(--taskbar-bg); backdrop-filter: blur(15px);
+    display: flex; align-items: center; color: white; z-index: 9000;
+}
+
+.start-btn {
+    padding: 0 25px; height: 100%; display: flex; align-items: center;
+    cursor: pointer; transition: 0.2s; font-weight: 600; font-size: 14px;
+}
+.start-btn:hover { background: var(--accent); }
+
+#clock { margin-left: auto; padding: 0 15px; text-align: right; font-size: 11px; }
+
+/* Menu Iniciar */
+.start-menu {
+    position: fixed; bottom: 45px; left: 8px;
+    width: 280px; background: rgba(25, 25, 25, 0.98);
+    border-radius: 8px; display: none; padding: 15px;
+    box-shadow: 0 5px 30px rgba(0,0,0,0.7); z-index: 9001;
+}
+.start-item {
+    color: #eee; padding: 10px; cursor: pointer; border-radius: 5px;
+    display: flex; align-items: center; gap: 10px;
+}
+.start-item:hover { background: rgba(255,255,255,0.1); }
+
+/* Overlay */
+#overlay-screen {
+    position: fixed; top:0; left:0; width:100vw; height:100vh;
+    background: black; z-index: 10000; display: none;
+    align-items: center; justify-content: center; color: white; flex-direction: column;
+}
+
+.maximized { width: 100vw !important; height: calc(100vh - 40px) !important; top: 0 !important; left: 0 !important; border-radius: 0; }
+</style>
+</head>
+<body>
+
+<div id="touch-cursor"></div>
+
+<div class="desktop" id="desktop" onclick="closeStart()">
+  <div class="grid-icons">
+    <div class="icon" onclick="openApp('notes')">📝<div>Notas</div></div>
+    <div class="icon" onclick="openApp('calc')">🧮<div>Calculadora</div></div>
+  </div>
+
+  <div class="window" id="notes">
+    <div class="titlebar" onmousedown="dragElement(this.parentElement)" ontouchstart="dragElement(this.parentElement)">
+      <span style="font-size:12px">Bloco de Notas</span>
+      <div class="window-controls">
+        <button class="control-btn" onclick="closeApp('notes')">─</button>
+        <button class="control-btn" onclick="maximizeApp('notes')">▢</button>
+        <button class="control-btn btn-close" onclick="closeApp('notes')">✕</button>
+      </div>
+    </div>
+    <div class="content">
+      <textarea id="noteArea" style="flex:1; resize:none;" placeholder="Digite com seu teclado físico ou touch..."></textarea>
+    </div>
+  </div>
+
+  <div class="window" id="calc">
+    <div class="titlebar" onmousedown="dragElement(this.parentElement)" ontouchstart="dragElement(this.parentElement)">
+      <span style="font-size:12px">Calculadora</span>
+      <div class="window-controls">
+        <button class="control-btn" onclick="closeApp('calc')">─</button>
+        <button class="control-btn" onclick="maximizeApp('calc')">▢</button>
+        <button class="control-btn btn-close" onclick="closeApp('calc')">✕</button>
+      </div>
+    </div>
+    <div class="content">
+        <input type="text" id="calcInput" placeholder="Ex: 2+2">
+        <button onclick="calculate()" style="width:100%; padding:10px; margin-top:10px; cursor:pointer; background:var(--accent); color:white; border:none; border-radius:4px;">Calcular</button>
+        <p id="calcResult" style="text-align:center; font-weight:bold"></p>
+    </div>
+  </div>
+</div>
+
+<div class="taskbar">
+  <div class="start-btn" onclick="event.stopPropagation(); toggleStart()">INICIAR</div>
+  <div id="clock"></div>
+</div>
+
+<div class="start-menu" id="startMenu">
+  <div class="start-item" onclick="openApp('notes')">📝 Notas</div>
+  <div class="start-item" onclick="openApp('calc')">🧮 Calculadora</div>
+  <hr style="opacity:0.1; margin: 10px 0;">
+  <div class="start-item" onclick="powerAction('sleep')">🌙 Descanso</div>
+  <div class="start-item" onclick="powerAction('restart')">🔄 Reiniciar</div>
+  <div class="start-item" style="color:#ff4d4d" onclick="powerAction('shutdown')">⏻ Desligar</div>
+</div>
+
+<div id="overlay-screen">
+    <h1 id="overlay-msg">A encerrar...</h1>
+</div>
+
+<script>
+/* LÓGICA DO CURSOR TOUCH */
+const touchCursor = document.getElementById('touch-cursor');
+
+document.addEventListener('touchstart', (e) => {
+    touchCursor.style.display = 'block';
+    updateTouchPos(e);
+});
+
+document.addEventListener('touchmove', (e) => {
+    updateTouchPos(e);
+});
+
+document.addEventListener('touchend', () => {
+    touchCursor.style.display = 'none';
+});
+
+function updateTouchPos(e) {
+    const touch = e.touches[0];
+    touchCursor.style.left = touch.clientX + 'px';
+    touchCursor.style.top = touch.clientY + 'px';
+}
+
+/* SISTEMA E PERSISTÊNCIA */
+let osState = {
+    notes: { visible: false, top: 50, left: 50, content: "", maximized: false },
+    calc: { visible: false, top: 100, left: 100, content: "", maximized: false }
+};
+
+function loadSystem() {
+    const saved = localStorage.getItem('gabrielOS_v2');
+    if (saved) {
+        osState = JSON.parse(saved);
+        Object.keys(osState).forEach(id => {
+            const win = document.getElementById(id);
+            const data = osState[id];
+            if(win) {
+                win.style.display = data.visible ? "flex" : "none";
+                win.style.top = data.top + "px";
+                win.style.left = data.left + "px";
+                if (data.maximized) win.classList.add('maximized');
+                if (id === 'notes') document.getElementById('noteArea').value = data.content;
+            }
+        });
+    }
+}
+
+function saveSystem() {
+    osState.notes.content = document.getElementById('noteArea').value;
+    localStorage.setItem('gabrielOS_v2', JSON.stringify(osState));
+}
+
+/* JANELAS */
+function openApp(id) {
+    const win = document.getElementById(id);
+    win.style.display = "flex";
+    osState[id].visible = true;
+    bringToFront(win);
+    closeStart();
+    saveSystem();
+}
+
+function closeApp(id) {
+    document.getElementById(id).style.display = "none";
+    osState[id].visible = false;
+    saveSystem();
+}
+
+function maximizeApp(id) {
+    const win = document.getElementById(id);
+    win.classList.toggle('maximized');
+    osState[id].maximized = win.classList.contains('maximized');
+    saveSystem();
+}
+
+function bringToFront(win) {
+    document.querySelectorAll('.window').forEach(w => w.style.zIndex = "10");
+    win.style.zIndex = "100";
+}
+
+/* ARRASTAR (MOUSE E TOUCH) */
+function dragElement(elmnt) {
+    let p1 = 0, p2 = 0, p3 = 0, p4 = 0;
+    
+    const onStart = (e) => {
+        if(elmnt.classList.contains('maximized')) return;
+        const clientX = e.clientX || e.touches[0].clientX;
+        const clientY = e.clientY || e.touches[0].clientY;
+        p3 = clientX; p4 = clientY;
+        document.onmouseup = onEnd;
+        document.ontouchend = onEnd;
+        document.onmousemove = onMove;
+        document.ontouchmove = onMove;
+        bringToFront(elmnt);
+    };
+
+    const onMove = (e) => {
+        const clientX = e.clientX || e.touches[0].clientX;
+        const clientY = e.clientY || e.touches[0].clientY;
+        p1 = p3 - clientX; p2 = p4 - clientY;
+        p3 = clientX; p4 = clientY;
+        elmnt.style.top = (elmnt.offsetTop - p2) + "px";
+        elmnt.style.left = (elmnt.offsetLeft - p1) + "px";
+    };
+
+    const onEnd = () => {
+        document.onmouseup = null; document.ontouchend = null;
+        document.onmousemove = null; document.ontouchmove = null;
+        osState[elmnt.id].top = elmnt.offsetTop;
+        osState[elmnt.id].left = elmnt.offsetLeft;
+        saveSystem();
+    };
+
+    elmnt.onmousedown = onStart;
+    elmnt.ontouchstart = onStart;
+}
+
+/* UI GERAL */
+function toggleStart() {
+    const m = document.getElementById("startMenu");
+    m.style.display = (m.style.display === "block") ? "none" : "block";
+}
+function closeStart() { document.getElementById("startMenu").style.display = "none"; }
+
+function updateClock() {
+    const now = new Date();
+    document.getElementById("clock").innerHTML = 
+        now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) + "<br>" + 
+        now.toLocaleDateString([], {day:'2-digit', month:'2-digit'});
+}
+
+function powerAction(type) {
+    const screen = document.getElementById("overlay-screen");
+    const msg = document.getElementById("overlay-msg");
+    screen.style.display = "flex";
+    if(type === 'shutdown') msg.innerText = "Encerrando...";
+    if(type === 'restart') { msg.innerText = "Reiniciando..."; setTimeout(() => location.reload(), 1500); }
+    if(type === 'sleep') { 
+        msg.innerText = "Modo de Espera"; 
+        screen.onclick = () => { screen.style.display = "none"; };
+    }
+}
+
+function calculate() {
+    try { document.getElementById("calcResult").innerText = "Res: " + eval(document.getElementById("calcInput").value); }
+    catch { document.getElementById("calcResult").innerText = "Erro"; }
+}
+
+// Iniciar
+document.getElementById('noteArea').addEventListener('input', saveSystem);
+setInterval(updateClock, 1000);
+updateClock();
+loadSystem();
+</script>
+
+</body>
+</html>
